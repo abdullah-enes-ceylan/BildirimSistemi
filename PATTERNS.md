@@ -6,116 +6,105 @@ Bu dosya, her fazda uygulanan tasarım örüntülerini belgeler.
 
 ## Faz 0 — Başlangıç Durumu
 
-Henüz tasarım örüntüsü uygulanmadı. Tüm bildirim tipleri `BildirimServisi` adlı tek bir God Class içinde if-else zincirleriyle yönetiliyordu.
-
-**Sorunlar:** God Class, If-Else zincirleri, Kod tekrarı, Hatalı Singleton, Sıkı bağlılık.
+Tasarım örüntüsü yok. Tüm bildirim tipleri tek bir God Class'ta if-else zincirleriyle yönetiliyordu.
 
 ---
 
 ## Faz 1 — Creational Örüntüler
 
 ### 1. Factory Method Pattern
+**Dosya:** `BildirimFactory.java`, `BildirimTipi.java`
 
-**Nerede uygulandı:** `BildirimFactory.bildirimOlustur(BildirimTipi tip)`
-
-**Neden uygulandı:**
-Başlangıç kodunda bildirim nesneleri doğrudan `BildirimServisi` içinde if-else zincirleriyle yaratılıyordu. Yeni bildirim tipi eklemek birçok metotta değişiklik gerektiriyordu.
-
-**Ne kazandık:**
-- Nesne yaratma sorumluluğu merkezi bir factory'ye taşındı
-- Polimorfizm sayesinde if-else zincirleri ortadan kalktı
-- Yeni tip eklemek için mevcut sınıflara dokunmak gerekmiyor
+Bildirim nesnelerinin yaratılmasını merkezi bir factory'ye taşıdık. İstemci kodu `BildirimFactory.bildirimOlustur(BildirimTipi.EMAIL)` çağırarak somut sınıfı bilmeden nesne alır. Yeni tip eklemek için mevcut bildirim sınıflarına dokunmak gerekmez.
 
 ### 2. Singleton Pattern
+**Dosya:** `BildirimServisi.java`
 
-**Nerede uygulandı:** `BildirimServisi.getInstance()`
-
-**Neden uygulandı:**
-Constructor public'ti ve thread-safe değildi. Birden fazla instance bildirim geçmişi tutarsızlığına yol açabilirdi.
-
-**Ne kazandık:**
-- Private constructor + double-checked locking ile thread-safe Singleton
-- Bildirim geçmişi tek noktada tutarlı
+Private constructor + double-checked locking ile thread-safe Singleton. Tüm uygulama tek bir `BildirimServisi` instance'ı paylaşır, bildirim geçmişi tutarlı kalır.
 
 ---
 
 ## Faz 2 — Structural Örüntüler
 
 ### 3. Decorator Pattern
+**Dosyalar:** `BildirimDecorator.java`, `LoglamaDecorator.java`, `TekrarDenemeDecorator.java`, `SifrelemeDecorator.java`
 
-**Nerede uygulandı:** `BildirimDecorator` (abstract), `LoglamaDecorator`, `TekrarDenemeDecorator`, `SifrelemeDecorator`
-
-**Neden uygulandı:**
-Bildirimlere loglama, tekrar deneme, şifreleme gibi ek davranışlar eklemek gerekiyordu. Bu davranışları doğrudan bildirim sınıflarına eklemek:
-- Her bildirim tipinde (Email, SMS, Push) aynı kodu tekrarlamayı gerektirirdi
-- Hangi davranışın aktif olacağını runtime'da seçmeyi zorlaştırırdı
-- Yeni davranış eklemek mevcut sınıfları değiştirmeyi gerektirirdi (OCP ihlali)
-
-**Ne kazandık:**
-- Davranışlar bağımsız decorator sınıflarında — her biri tek sorumluluk
-- Decorator'lar **zincirlenebilir**: `new LoglamaDecorator(new SifrelemeDecorator(email))`
-- Runtime'da hangi davranışların aktif olacağı seçilebilir
-- Yeni davranış eklemek için sadece yeni decorator yazılır — OCP korunuyor
-- Mevcut bildirim sınıfları hiç değişmedi!
-
-**Decorator Zinciri Örneği:**
+Bildirimlere loglama, retry, şifreleme gibi davranışları mevcut sınıfları değiştirmeden ekler. Decorator'lar zincirlenebilir:
 ```java
-// Sade bildirim
-Bildirim email = BildirimFactory.bildirimOlustur(BildirimTipi.EMAIL);
-
-// Loglama ekle
-Bildirim loglu = new LoglamaDecorator(email);
-
-// Şifreleme + loglama ekle
-Bildirim tamDonatimli = new LoglamaDecorator(new SifrelemeDecorator(email));
-```
-
-**Sınıf Yapısı:**
-```
-Bildirim (interface)
-  ├── EmailBildirim
-  ├── SmsBildirim
-  ├── PushBildirim
-  └── BildirimDecorator (abstract)
-        ├── LoglamaDecorator
-        ├── TekrarDenemeDecorator
-        └── SifrelemeDecorator
+Bildirim b = new LoglamaDecorator(new SifrelemeDecorator(email));
 ```
 
 ### 4. Facade Pattern
+**Dosya:** `BildirimFacade.java`
 
-**Nerede uygulandı:** `BildirimFacade`
-
-**Neden uygulandı:**
-Bildirim göndermek için istemci kodunun şunları bilmesi gerekiyordu:
-1. `BildirimFactory` ile nesne oluşturmak
-2. Hangi `BildirimTipi` enum değerini kullanmak
-3. Gerekli decorator'ları elle zincirlenmek
-4. `BildirimServisi.getInstance()` ile singleton almak
-
-Bu karmaşıklık, özellikle basit bildirim göndermek isteyen istemci kodu için gereksizdi.
-
-**Ne kazandık:**
-- **Tek satırla bildirim**: `facade.emailGonder("alici@test.com", "Başlık", "Mesaj")`
-- Factory, Decorator, Singleton karmaşıklığı gizleniyor
-- İstemci kodu alt sistemi bilmek zorunda değil
-- Acil bildirim gibi özel senaryolar hazır metotlarla sunuluyor
-- Loglama/şifreleme yapılandırması constructor'da bir kez yapılıyor
-
-**Facade Kullanımı:**
+Factory, Decorator, Singleton karmaşıklığını gizleyerek tek satırlık API sunar:
 ```java
-// Önce (Facade olmadan)
-BildirimServisi servis = BildirimServisi.getInstance();
-Bildirim bildirim = BildirimFactory.bildirimOlustur(BildirimTipi.EMAIL);
-Bildirim loglu = new LoglamaDecorator(bildirim);
-loglu.gonder("alici@test.com", "Başlık", "Mesaj", 1);
-
-// Sonra (Facade ile)
-BildirimFacade facade = new BildirimFacade();
 facade.emailGonder("alici@test.com", "Başlık", "Mesaj");
 ```
 
 ---
 
 ## Faz 3 — Behavioral Örüntüler
-_Henüz uygulanmadı._
+
+### 5. Observer Pattern
+**Dosyalar:** `BildirimOlayDinleyici.java`, `BildirimOlayYoneticisi.java`, `IstatistikDinleyici.java`, `GecmisDinleyici.java`
+
+**Neden uygulandı:**
+İstatistik toplama ve geçmiş kaydı `BildirimServisi`'ne sıkı bağlıydı. Yeni bir izleme özelliği (örn. alarm, dosyaya loglama) eklemek servisi değiştirmeyi gerektiriyordu.
+
+**Ne kazandık:**
+- `BildirimOlayDinleyici` arayüzünü implement eden herhangi bir sınıf, bildirim olaylarını dinleyebilir
+- `IstatistikDinleyici`: tip bazlı başarılı/başarısız sayıları otomatik toplar
+- `GecmisDinleyici`: zaman damgalı geçmiş kaydı tutar
+- **OCP kanıtı:** Yeni bir dinleyici (örn. `AlarmDinleyici`) eklemek için sadece `BildirimOlayDinleyici` implement edilir — mevcut hiçbir sınıf değişmez
+
+**Sınıf İlişkisi:**
+```
+BildirimOlayDinleyici (interface)  ←  Observer
+├── IstatistikDinleyici
+└── GecmisDinleyici
+
+BildirimOlayYoneticisi  ←  Subject
+└── dinleyiciler: List<BildirimOlayDinleyici>
+```
+
+### 6. Strategy Pattern
+**Dosyalar:** `FiltrelemeStratejisi.java`, `HepsiniGonderStratejisi.java`, `OncelikFiltrelemeStratejisi.java`, `SessizModStratejisi.java`
+
+**Neden uygulandı:**
+Bildirimlerin filtrelenmesi (hangi bildirimin gönderilip hangisinin engelleneceği) sabit bir mantık olmamalıydı. Farklı senaryolarda (gece modu, sessiz mod, acil durum) farklı filtreleme kuralları gerekiyordu.
+
+**Ne kazandık:**
+- `FiltrelemeStratejisi` arayüzü ile filtreleme algoritması soyutlandı
+- `setFiltrelemeStratejisi()` ile runtime'da strateji değiştirilebilir
+- `HepsiniGonderStratejisi`: varsayılan, filtresiz gönderim
+- `OncelikFiltrelemeStratejisi`: minimum öncelik altını engeller
+- `SessizModStratejisi`: belirli tipleri engeller, acil bildirimler hariç
+- **OCP kanıtı:** Yeni filtreleme kuralı = yeni sınıf, mevcut kod değişmez
+
+**Strateji Değişimi Örneği:**
+```java
+// Normal mod
+servis.setFiltrelemeStratejisi(new HepsiniGonderStratejisi());
+
+// Gece modu: sadece acil bildirimler
+servis.setFiltrelemeStratejisi(new OncelikFiltrelemeStratejisi(4));
+
+// Sessiz mod: Push/SMS engelli
+SessizModStratejisi sessiz = new SessizModStratejisi();
+sessiz.tipEngelle("PUSH");
+servis.setFiltrelemeStratejisi(sessiz);
+```
+
+---
+
+## Özet Tablo
+
+| # | Örüntü | Kategori | Dosyalar |
+|---|--------|----------|----------|
+| 1 | Factory Method | Creational | `BildirimFactory`, `BildirimTipi` |
+| 2 | Singleton | Creational | `BildirimServisi` |
+| 3 | Decorator | Structural | `BildirimDecorator`, `LoglamaDecorator`, `TekrarDenemeDecorator`, `SifrelemeDecorator` |
+| 4 | Facade | Structural | `BildirimFacade` |
+| 5 | Observer | Behavioral | `BildirimOlayDinleyici`, `BildirimOlayYoneticisi`, `IstatistikDinleyici`, `GecmisDinleyici` |
+| 6 | Strategy | Behavioral | `FiltrelemeStratejisi`, `HepsiniGonderStratejisi`, `OncelikFiltrelemeStratejisi`, `SessizModStratejisi` |
