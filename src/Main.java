@@ -4,109 +4,113 @@ import java.util.List;
 /**
  * Ana uygulama sınıfı — Bildirim Sistemini test eder.
  * 
- * Faz 2 sonrası: Decorator ve Facade örüntüleri aktif.
- * - Decorator: Loglama, tekrar deneme, şifreleme katmanları
- * - Facade: Basitleştirilmiş API (emailGonder, smsGonder, pushGonder)
+ * Faz 3 (Final): Tüm tasarım örüntüleri aktif.
+ * - Creational: Factory Method, Singleton
+ * - Structural: Decorator, Facade
+ * - Behavioral: Observer, Strategy
  */
 public class Main {
     public static void main(String[] args) {
         System.out.println("=============================================");
-        System.out.println("   BILDIRIM SISTEMI - Faz 2 Demo");
-        System.out.println("   Decorator + Facade Patterns");
+        System.out.println("   BILDIRIM SISTEMI - Final Demo");
+        System.out.println("   6 Tasarim Oruntsu Aktif");
         System.out.println("=============================================\n");
 
-        // ===== BOLUM 1: Decorator Pattern Demo =====
-        System.out.println("############################################");
-        System.out.println("# BOLUM 1: Decorator Pattern               #");
+        // ===== Observer Kurulumu =====
+        BildirimOlayYoneticisi olayYoneticisi = BildirimOlayYoneticisi.getInstance();
+        IstatistikDinleyici istatistik = new IstatistikDinleyici();
+        GecmisDinleyici gecmis = new GecmisDinleyici();
+        olayYoneticisi.dinleyiciEkle(istatistik);
+        olayYoneticisi.dinleyiciEkle(gecmis);
+
+        BildirimServisi servis = BildirimServisi.getInstance();
+
+        // ===== BOLUM 1: Factory Method + Observer =====
+        System.out.println("\n############################################");
+        System.out.println("# BOLUM 1: Factory + Observer              #");
         System.out.println("############################################\n");
 
-        // --- Test 1: Sade bildirim (decorator yok) ---
-        System.out.println("--- Test 1: Sade Email (decorator yok) ---");
-        Bildirim email = BildirimFactory.bildirimOlustur(BildirimTipi.EMAIL);
-        email.gonder("test@example.com", "Basit Test", "Decorator olmadan gonderim", 1);
+        System.out.println("--- Test 1: Email Bildirimi ---");
+        servis.bildirimGonder(BildirimTipi.EMAIL, "user@example.com", "Hosgeldiniz", "Kaydiniz tamamlandi", 1);
 
-        // --- Test 2: Loglama Decorator ---
-        System.out.println("\n--- Test 2: Loglama Decorator ---");
-        Bildirim logluEmail = new LoglamaDecorator(
-            BildirimFactory.bildirimOlustur(BildirimTipi.EMAIL)
-        );
-        logluEmail.gonder("test@example.com", "Loglu Test", "Bu gonderim loglanir", 2);
+        System.out.println("\n--- Test 2: SMS Bildirimi ---");
+        servis.bildirimGonder(BildirimTipi.SMS, "+905551234567", "Dogrulama", "Kodunuz: 123456", 2);
 
-        // --- Test 3: Sifreleme Decorator ---
-        System.out.println("\n--- Test 3: Sifreleme Decorator ---");
-        Bildirim sifreliSms = new SifrelemeDecorator(
-            BildirimFactory.bildirimOlustur(BildirimTipi.SMS)
-        );
-        sifreliSms.gonder("+905551234567", "Guvenli Mesaj", "Bu mesaj sifrelenir", 1);
+        System.out.println("\n--- Test 3: Push Bildirimi ---");
+        servis.bildirimGonder(BildirimTipi.PUSH, "device-token-abc123xyz789def456", "Yeni Mesaj", "Mesajiniz var", 1);
 
-        // --- Test 4: Zincirlenmis Decorator (Log + Sifreleme) ---
-        System.out.println("\n--- Test 4: Zincirlenmis Decorator (Log + Sifreleme) ---");
+        // ===== BOLUM 2: Strategy Pattern =====
+        System.out.println("\n\n############################################");
+        System.out.println("# BOLUM 2: Strategy Pattern                #");
+        System.out.println("############################################\n");
+
+        // Oncelik filtresi: sadece oncelik >= 3 gonderilebilir
+        System.out.println("--- Test 4: Oncelik Filtresi (min=3) ---");
+        servis.setFiltrelemeStratejisi(new OncelikFiltrelemeStratejisi(3));
+        servis.bildirimGonder(BildirimTipi.EMAIL, "user@example.com", "Dusuk Oncelik", "Bu engellenmeli", 1);
+        servis.bildirimGonder(BildirimTipi.EMAIL, "user@example.com", "Yuksek Oncelik", "Bu gitmeli", 4);
+
+        // Sessiz mod: Push engellensin
+        System.out.println("\n--- Test 5: Sessiz Mod (Push engelli) ---");
+        SessizModStratejisi sessizMod = new SessizModStratejisi();
+        sessizMod.tipEngelle("PUSH");
+        sessizMod.tipEngelle("SMS");
+        servis.setFiltrelemeStratejisi(sessizMod);
+
+        servis.bildirimGonder(BildirimTipi.EMAIL, "user@example.com", "Email OK", "Email gider", 1);
+        servis.bildirimGonder(BildirimTipi.PUSH, "device-token-abc123xyz789def456", "Push Engel", "Bu engellenir", 2);
+        servis.bildirimGonder(BildirimTipi.SMS, "+905551234567", "SMS Engel", "Bu da engellenir", 1);
+
+        // Acil bildirimler sessiz modda bile gecer
+        System.out.println("\n--- Test 6: Acil Bildirim (sessiz modda bile gecer) ---");
+        servis.bildirimGonder(BildirimTipi.PUSH, "device-token-abc123xyz789def456", "ACIL ALARM", "Sunucu coktu!", 5);
+
+        // Stratejiyi sifirla
+        servis.setFiltrelemeStratejisi(new HepsiniGonderStratejisi());
+
+        // ===== BOLUM 3: Decorator Zincirleme =====
+        System.out.println("\n\n############################################");
+        System.out.println("# BOLUM 3: Decorator Zincirleme            #");
+        System.out.println("############################################\n");
+
+        System.out.println("--- Test 7: Log + Sifreleme Decorator ---");
         Bildirim tamDonatimli = new LoglamaDecorator(
             new SifrelemeDecorator(
-                BildirimFactory.bildirimOlustur(BildirimTipi.PUSH)
+                BildirimFactory.bildirimOlustur(BildirimTipi.EMAIL)
             )
         );
-        tamDonatimli.gonder("device-token-abc123xyz789def456", "Tam Donatimli", "Log + Sifreleme birlikte", 3);
+        tamDonatimli.gonder("admin@example.com", "Gizli Rapor", "Cok gizli bilgi", 3);
 
-        // --- Test 5: Tekrar Deneme Decorator ---
-        System.out.println("\n--- Test 5: Tekrar Deneme Decorator (basarisiz alici) ---");
-        Bildirim retryEmail = new TekrarDenemeDecorator(
-            BildirimFactory.bildirimOlustur(BildirimTipi.EMAIL),
-            3,  // max 3 deneme
-            500  // 500ms bekleme
-        );
-        retryEmail.gonder("gecersiz-adres", "Retry Test", "Bu basarisiz olacak", 1);
-
-        // ===== BOLUM 2: Facade Pattern Demo =====
+        // ===== BOLUM 4: Facade =====
         System.out.println("\n\n############################################");
-        System.out.println("# BOLUM 2: Facade Pattern                  #");
+        System.out.println("# BOLUM 4: Facade                          #");
         System.out.println("############################################\n");
 
-        // Facade olustur (loglama acik, sifreleme kapali)
         BildirimFacade facade = new BildirimFacade(true, false);
 
-        // --- Test 6: Facade ile basit email ---
-        System.out.println("--- Test 6: Facade ile Email ---");
-        facade.emailGonder("kullanici@example.com", "Hos Geldiniz", "Kaydiniz tamamlandi!");
+        System.out.println("--- Test 8: Facade ile Basit Gonderim ---");
+        facade.emailGonder("basit@example.com", "Facade Test", "Tek satirla gonderim!");
+        facade.smsGonder("+905559999999", "Facade SMS", "Basit API");
 
-        // --- Test 7: Facade ile SMS ---
-        System.out.println("\n--- Test 7: Facade ile SMS ---");
-        facade.smsGonder("+905559876543", "Dogrulama", "Kodunuz: 654321");
-
-        // --- Test 8: Facade ile Push ---
-        System.out.println("\n--- Test 8: Facade ile Push ---");
-        facade.pushGonder("device-token-xyz987abc654def321", "Yeni Bildirim", "Yeni bir mesajiniz var");
-
-        // --- Test 9: Facade ile Acil Bildirim ---
-        System.out.println("\n--- Test 9: Acil Bildirim (otomatik retry) ---");
-        facade.acilBildirimGonder(BildirimTipi.EMAIL, "admin@example.com", "ALARM", "Sistem coktu!");
-
-        // --- Test 10: Sifrelemeli Facade ---
-        System.out.println("\n--- Test 10: Sifrelemeli Facade ---");
-        BildirimFacade guvenliFacade = new BildirimFacade(true, true);
-        guvenliFacade.smsGonder("+905551112233", "Banka", "Hesabiniza 1000 TL yattirildi");
-
-        // ===== BOLUM 3: Singleton Dogrulama =====
+        // ===== BOLUM 5: OCP Demonstrasyonu =====
         System.out.println("\n\n############################################");
-        System.out.println("# BOLUM 3: Singleton Dogrulama             #");
+        System.out.println("# BOLUM 5: OCP Demonstrasyonu              #");
         System.out.println("############################################\n");
 
-        BildirimServisi s1 = BildirimServisi.getInstance();
-        BildirimServisi s2 = BildirimServisi.getInstance();
-        System.out.println("Ayni instance mi? " + (s1 == s2));
+        System.out.println("OCP (Open/Closed Principle) kaniti:");
+        System.out.println("  - Yeni bildirim tipi: sadece yeni sinif + enum degeri");
+        System.out.println("  - Yeni decorator: sadece yeni sinif (LoglamaDecorator gibi)");
+        System.out.println("  - Yeni observer: sadece BildirimOlayDinleyici implement et");
+        System.out.println("  - Yeni strateji: sadece FiltrelemeStratejisi implement et");
+        System.out.println("  -> Hicbir mevcut sinif degismez!\n");
 
-        // ===== BOLUM 4: Istatistikler =====
-        System.out.println("\n\n############################################");
-        System.out.println("# BOLUM 4: Istatistikler & Gecmis          #");
+        // ===== BOLUM 6: Observer Sonuclari =====
+        System.out.println("\n############################################");
+        System.out.println("# BOLUM 6: Observer Sonuclari              #");
         System.out.println("############################################");
 
-        BildirimServisi.getInstance().istatistikYazdir();
-
-        System.out.println("\n=== BILDIRIM GECMISI ===");
-        List<String> gecmis = BildirimServisi.getInstance().gecmisGetir(null);
-        for (String kayit : gecmis) {
-            System.out.println("  " + kayit);
-        }
+        istatistik.istatistikleriYazdir();
+        gecmis.gecmisYazdir();
 
         System.out.println("\n=============================================");
         System.out.println("   Demo tamamlandi.");
