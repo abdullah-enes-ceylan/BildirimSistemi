@@ -1,0 +1,29 @@
+name: Java CI
+
+on:
+  push:
+    branches: [ main, phase-1, phase-2, phase-3 ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'microsoft'
+
+    - name: Compile source code
+      run: |
+        mkdir -p out
+        javac -encoding UTF-8 -d out src/*.java
+
+    - name: Run application
+      run: java -cp out Main
